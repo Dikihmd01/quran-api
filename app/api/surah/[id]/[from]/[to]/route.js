@@ -1,16 +1,12 @@
+import { promises as fs } from "fs";
+import path from "path";
+
 export async function GET(request, { params }) {
   const { id, from, to } = params;
 
   // Convert from and to to integers
   const start = parseInt(from, 10);
   const end = parseInt(to, 10);
-
-  // Adjust the start and end to be 0-based for external API
-  const apiStart = start - 1;
-  const apiEnd = end - 1;
-
-  // Calculate limit
-  const limit = apiEnd - apiStart + 1;
 
   // Ensure valid values
   if (isNaN(start) || isNaN(end) || start < 1 || end < start) {
@@ -25,44 +21,60 @@ export async function GET(request, { params }) {
     );
   }
 
-  // Construct API URL with adjusted start and limit
-  const apiUrl = `${process.env.SOURCE_API_URL_SURAH}?start=${apiStart}&limit=${limit}&surah=${id}`;
-  const audioBaseUrl = process.env.SOURCE_AUDIO_BASE_URL;
+  const filePath = path.join(process.cwd(), "data", "surahWithAudio.json");
 
   try {
-    const response = await fetch(apiUrl);
-    const data = await response.json();
+    // Read the JSON file
+    const fileContents = await fs.readFile(filePath, "utf8");
+    const jsonData = JSON.parse(fileContents);
 
-    // Check if data is in expected format
-    if (!Array.isArray(data.data)) {
-      throw new Error("Data is not in the expected format");
-    }
+    // Filter data to get ayahs for the given surah id and range
+    const ayahs = jsonData.data.filter(
+      (item) =>
+        item.surah_id === Number(id) && item.ayah >= start && item.ayah <= end,
+    );
 
-    // Add audio URL to each ayah
-    const ayahsWithAudio = data.data.map((ayah) => {
-      const ayahNumberPadded = String(ayah.ayah).padStart(3, "0");
-      const audioUrl = `${audioBaseUrl}${id.padStart(3, "0")}${ayahNumberPadded}.m4a`;
-
-      return {
-        ...ayah,
-        surah: {
-          ...ayah.surah,
-          audio: audioUrl,
-        },
+    if (ayahs.length > 0) {
+      // Prepare the response object
+      const responseObject = {
+        code: 200,
+        status: "OK.",
+        message: `Success fetching ayahs from ${start} to ${end} for surah ${id}.`,
+        data: ayahs,
       };
-    });
 
-    return new Response(JSON.stringify(ayahsWithAudio), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+      return new Response(JSON.stringify(responseObject), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } else {
+      // Handle case where no ayahs are found for the surah
+      return new Response(
+        JSON.stringify({
+          code: 404,
+          status: "Not Found",
+          message: `No ayahs found for surah with ID ${id} from ${start} to ${end}.`,
+        }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
   } catch (error) {
-    console.error(`Error fetching surah ${id} from ${from} to ${to}:`, error);
+    console.error(
+      `Error reading ayahs for surah ${id} from ${from} to ${to}:`,
+      error,
+    );
     return new Response(
       JSON.stringify({
-        error: `Failed to fetch surah ${id} from ${from} to ${to}`,
+        code: 500,
+        status: "Error",
+        message: `Failed to read ayahs for surah ${id} from ${from} to ${to}: ${error.message}`,
       }),
       {
         status: 500,

@@ -1,54 +1,56 @@
+import { promises as fs } from "fs";
+import path from "path";
+
 export async function GET(request, { params }) {
   const { id } = params;
-  const apiUrl = `${process.env.SOURCE_API_URL_SURAH}?surah=${id}`;
-  const audioBaseUrl = process.env.SOURCE_AUDIO_BASE_URL;
+  const filePath = path.join(process.cwd(), "data", "surahWithAudio.json");
 
   try {
-    const response = await fetch(apiUrl);
+    // Read the JSON file
+    const fileContents = await fs.readFile(filePath, "utf8");
+    const jsonData = JSON.parse(fileContents);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+    // Filter data to get all ayahs for the given surah id
+    const ayahs = jsonData.data.filter((item) => item.surah.id === Number(id));
 
-    const data = await response.json();
-
-    if (data && Array.isArray(data.data)) {
-      // Add audio URL to each surah object
-      const updatedData = {
-        ...data,
-        data: data.data.map((item) => {
-          // Pad the surah ID to 3 digits
-          const surahIdPadded = String(item.surah_id).padStart(3, "0");
-          // Pad ayah number to 3 digits
-          const ayahNumberPadded = String(item.ayah).padStart(3, "0");
-          // Construct audio URL
-          const audioUrl = `${audioBaseUrl}${surahIdPadded}${ayahNumberPadded}.m4a`;
-
-          return {
-            ...item,
-            surah: {
-              ...item.surah,
-              // Add the audio URL to the surah object
-              audio: audioUrl,
-            },
-          };
-        }),
+    if (ayahs.length > 0) {
+      // Prepare the response object
+      const responseObject = {
+        code: 200,
+        status: "OK.",
+        message: `Success fetching all ayahs for surah ${id}.`,
+        data: ayahs,
       };
 
-      return new Response(JSON.stringify(updatedData), {
+      return new Response(JSON.stringify(responseObject), {
         status: 200,
         headers: {
           "Content-Type": "application/json",
         },
       });
     } else {
-      throw new Error("Data does not contain a valid array");
+      // Handle case where no ayahs are found for the surah
+      return new Response(
+        JSON.stringify({
+          code: 404,
+          status: "Not Found",
+          message: `No ayahs found for surah with ID ${id}.`,
+        }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
     }
   } catch (error) {
-    console.error(`Error fetching surah ${id}:`, error);
+    console.error(`Error reading ayahs for surah ${id}:`, error);
     return new Response(
       JSON.stringify({
-        error: `Failed to fetch surah ${id}: ${error.message}`,
+        code: 500,
+        status: "Error",
+        message: `Failed to read ayahs for surah ${id}: ${error.message}`,
       }),
       {
         status: 500,
