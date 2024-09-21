@@ -7,7 +7,12 @@ export async function GET(request, { params }) {
     const jsonData = await fetchQuranData();
     const ayahs = jsonData.data.filter((item) => item.surah.id === Number(id));
 
-    return new Response(JSON.stringify({ status: "OK", data: ayahs }), {
+    return new Response(JSON.stringify({ 
+      code: 200,
+      status: "OK",
+      message: `Success fetching surah ${id}.`,
+      data: ayahs 
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

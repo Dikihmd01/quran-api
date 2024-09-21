@@ -16,7 +16,9 @@ export async function GET(req) {
 
     return new Response(
       JSON.stringify({
+        code: 200,
         status: "OK",
+        message: `Success fetching all surah`,
         data: uniqueSurahs,
       }),
       {

@@ -18,7 +18,12 @@ export async function GET(request, { params }) {
       (item) => item.surah.id === Number(id) && item.ayah >= start && item.ayah <= end
     );
 
-    return new Response(JSON.stringify({ status: "OK", data: ayahs }), {
+    return new Response(JSON.stringify({ 
+      code: 200,
+      status: "OK",
+      message: `Success fetching surah ${id} from ayah ${from} to ${to}.`,
+      data: ayahs 
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
